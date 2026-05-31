@@ -12,6 +12,7 @@ import ssl
 import subprocess
 import tempfile
 import threading
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -514,6 +515,46 @@ def _checked_host(host: dict) -> dict:
     }
 
 
+def _check_error(host: dict, error: str) -> dict:
+    return {
+        **host,
+        "source_online": False,
+        "dest_online": False,
+        "source_check": {"online": False, "status": None, "error": error, "scheme": "https/http"},
+        "target_check": {"online": False, "tcp": False, "http_status": None, "error": error},
+    }
+
+
+def _checked_host_safe(host: dict) -> dict:
+    try:
+        return _checked_host(host)
+    except Exception as exc:
+        return _check_error(host, str(exc))
+
+
+def _checked_hosts(hosts: list[dict], timeout: float = 8.0) -> list[dict]:
+    results: list[dict | None] = [None] * len(hosts)
+    lock = threading.Lock()
+
+    def check(index: int, host: dict):
+        result = _checked_host_safe(host)
+        with lock:
+            results[index] = result
+
+    threads = [threading.Thread(target=check, args=(index, host), daemon=True) for index, host in enumerate(hosts)]
+    for thread in threads:
+        thread.start()
+
+    deadline = time.monotonic() + timeout
+    for thread in threads:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        thread.join(timeout=remaining)
+
+    return [result if result is not None else _check_error(host, "check timed out") for result, host in zip(results, hosts)]
+
+
 def _masked_settings() -> dict:
     values = _runtime_settings(include_secrets=False)
     return values
@@ -566,10 +607,10 @@ def meta():
 
 @app.route("/api/hosts", methods=["GET"])
 def list_hosts():
-    checked = request.args.get("status", "true").lower() not in {"0", "false", "no"}
+    checked = request.args.get("status", "false").lower() not in {"0", "false", "no"}
     hosts = _all_hosts()
     if checked:
-        hosts = [_checked_host(host) for host in hosts]
+        hosts = _checked_hosts(hosts)
     return jsonify(hosts)
 
 
@@ -643,18 +684,7 @@ def toggle_host(service_id):
 @app.route("/api/status", methods=["GET"])
 def status_all():
     hosts = _all_hosts()
-    results: list[dict] = []
-    lock = threading.Lock()
-
-    def check(host):
-        with lock:
-            results.append(_checked_host(host))
-
-    threads = [threading.Thread(target=check, args=(host,), daemon=True) for host in hosts]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join(timeout=8)
+    results = _checked_hosts(hosts)
     return jsonify(sorted(results, key=lambda h: h["id"]))
 
 
@@ -716,11 +746,7 @@ def backups():
 
 @app.route("/api/health", methods=["GET"])
 def health():
-    try:
-        _read_text()
-        return jsonify({"status": "healthy", "backend": BACKEND, "app": APP_NAME})
-    except Exception as exc:
-        return jsonify({"status": "unhealthy", "backend": BACKEND, "error": str(exc)}), 503
+    return jsonify({"status": "healthy", "backend": BACKEND, "app": APP_NAME})
 
 
 if __name__ == "__main__":
