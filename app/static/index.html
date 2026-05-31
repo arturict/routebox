@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RouteBox</title>
+  <link rel="icon" type="image/png" href="/static/assets/routebox-icon.png">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #10110c;
+      --panel: rgba(24, 26, 18, .9);
+      --panel-2: #171912;
+      --text: #f8f3df;
+      --muted: #a9a08a;
+      --border: rgba(248, 243, 223, .14);
+      --accent: #c8ff2e;
+      --accent-2: #ff6a2a;
+      --danger: #ff5f6d;
+      --warn: #ffbd45;
+      --shadow: 9px 9px 0 rgba(200,255,46,.11);
+      --grid: rgba(248, 243, 223, .045);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+        radial-gradient(circle at 12% 0%, rgba(200,255,46,.16), transparent 30%),
+        radial-gradient(circle at 86% 8%, rgba(255,106,42,.12), transparent 28%),
+        var(--bg);
+      background-size: 34px 34px, 34px 34px, auto, auto, auto;
+      color: var(--text);
+      min-height: 100vh;
+    }
+    a { color: inherit; }
+    button, input, select { font: inherit; }
+    .shell { display: grid; grid-template-columns: 280px minmax(0, 1fr); min-height: 100vh; }
+    aside { padding: 26px 18px; border-right: 1px solid var(--border); background: rgba(16,17,12,.86); backdrop-filter: blur(18px); position:relative; }
+    .brand { display:flex; gap:12px; align-items:center; margin-bottom:28px; }
+    .logo { width:46px; height:46px; border-radius:6px; display:block; object-fit:cover; background:#111; border:1px solid var(--border); box-shadow: 5px 5px 0 rgba(200,255,46,.15); }
+    .brand h1 { font-size: 15px; margin:0; line-height:1.2; }
+    .brand p { margin:3px 0 0; color:var(--muted); font-size:12px; }
+    .nav { display:grid; gap:8px; }
+    .nav button { border:0; color:var(--muted); background:transparent; padding:12px 14px; border-radius:4px; text-align:left; cursor:pointer; }
+    .nav button.active, .nav button:hover { color:var(--text); background:rgba(255,255,255,.06); }
+    .side-card { margin-top: 22px; padding:14px; border:1px solid var(--border); border-radius:6px; background:rgba(255,255,255,.04); color:var(--muted); font-size:13px; line-height:1.45; }
+    main { padding: 28px; }
+    .topbar { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:22px; }
+    .kicker { color:var(--accent); font-weight:800; letter-spacing:.08em; text-transform:uppercase; font-size:12px; }
+    h2 { font-size: clamp(28px, 4vw, 44px); margin:6px 0 8px; letter-spacing:-.04em; }
+    .subtitle { color:var(--muted); max-width:780px; line-height:1.55; margin:0; }
+    .actions { display:flex; gap:10px; flex-wrap:wrap; }
+    .btn { border:1px solid var(--border); border-radius:4px; padding:10px 14px; color:var(--text); background:var(--panel); cursor:pointer; text-decoration:none; display:inline-flex; gap:8px; align-items:center; }
+    .btn:hover { border-color: var(--accent); }
+    .btn.primary { color:#10110c; background:var(--accent); border-color:var(--accent); font-weight:800; }
+    .btn.danger { color: var(--danger); }
+    .panel { border:1px solid var(--border); background:var(--panel); border-radius:6px; box-shadow:var(--shadow); overflow:hidden; }
+    .panel-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:18px 20px; border-bottom:1px solid var(--border); }
+    .panel-head h3 { margin:0; font-size:16px; }
+    .toolbar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .search { min-width:240px; }
+    input, select { width:100%; padding:11px 12px; border:1px solid var(--border); border-radius:4px; background:var(--panel-2); color:var(--text); outline:none; }
+    input:focus, select:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(32,212,137,.12); }
+    table { width:100%; border-collapse:collapse; }
+    th { text-align:left; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.06em; padding:13px 20px; }
+    td { padding:16px 20px; border-top:1px solid rgba(255,255,255,.055); vertical-align:middle; }
+    tr.disabled { opacity:.48; }
+    .domain { color:var(--accent); text-decoration:none; font-weight:700; display:block; margin-bottom:4px; }
+    .service { color:var(--muted); font-size:12px; }
+    .target { font-family:"SF Mono", Consolas, monospace; color:#dce9f7; }
+    .pill { display:inline-flex; align-items:center; gap:7px; padding:6px 9px; border-radius:4px; border:1px solid var(--border); color:var(--muted); font-size:12px; }
+    .dot { width:9px; height:9px; border-radius:999px; background:#6b7c8f; display:inline-block; }
+    .ok { background:var(--accent); }
+    .bad { background:var(--danger); }
+    .warn { background:var(--warn); }
+    .switch { position:relative; display:inline-block; width:46px; height:26px; }
+    .switch input { opacity:0; width:0; height:0; }
+    .slider { position:absolute; inset:0; cursor:pointer; border-radius:999px; background:#445260; transition:.2s; }
+    .slider::before { content:""; position:absolute; width:20px; height:20px; left:3px; top:3px; border-radius:999px; background:#fff; transition:.2s; }
+    .switch input:checked + .slider { background:var(--accent); }
+    .switch input:checked + .slider::before { transform:translateX(20px); }
+    .row-actions { display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
+    .view { display:none; }
+    .view.active { display:block; }
+    .cards { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:14px; margin-bottom:18px; }
+    .card { padding:17px; border:1px solid var(--border); background:rgba(255,255,255,.04); border-radius:6px; }
+    .card strong { display:block; font-size:24px; margin-top:7px; }
+    .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(2,6,10,.72); z-index:80; align-items:center; justify-content:center; padding:18px; }
+    .modal-backdrop.active { display:flex; }
+    .modal { width:min(720px, 100%); background:var(--panel); border:1px solid var(--border); border-radius:6px; box-shadow:var(--shadow); padding:22px; }
+    .modal h3 { margin:0 0 18px; }
+    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:14px; }
+    .field { display:grid; gap:7px; }
+    .field.full { grid-column: 1 / -1; }
+    label { color:#c9d6e4; font-size:13px; font-weight:700; }
+    .hint { color:var(--muted); font-size:12px; line-height:1.45; }
+    .modal-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
+    textarea { width:100%; min-height:360px; padding:14px; border:1px solid var(--border); border-radius:4px; background:var(--panel-2); color:var(--text); font:inherit; font-family:"SF Mono", Consolas, monospace; }
+    pre { white-space:pre; overflow:auto; margin:0; padding:20px; background:#080a07; color:#d4e8ff; min-height:460px; font-size:13px; line-height:1.55; }
+    .toast { position:fixed; right:24px; bottom:24px; background:#10110c; color:var(--text); border:1px solid var(--border); padding:13px 16px; border-radius:4px; display:none; z-index:120; box-shadow:var(--shadow); }
+    .toast.show { display:block; }
+    .toast.error { border-color:rgba(255,95,109,.6); color:#ffd7dc; }
+    @media (max-width: 950px) { .shell { grid-template-columns:1fr; } aside { position:static; } .cards { grid-template-columns:1fr; } .topbar { flex-direction:column; } table, tbody, tr, td { display:block; } thead { display:none; } td { padding:12px 16px; } .row-actions { justify-content:flex-start; } .grid { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside>
+      <div class="brand">
+        <img class="logo" src="/static/assets/routebox-icon.png" alt="RouteBox icon">
+        <div><h1>RouteBox</h1><p>Coolify route control</p></div>
+      </div>
+      <nav class="nav">
+        <button class="active" data-view-button="hosts">Proxy Hosts</button>
+        <button data-view-button="status">Health</button>
+        <button data-view-button="raw">Raw YAML</button>
+        <button data-view-button="settings">Settings</button>
+        <button data-view-button="backups">Backups</button>
+      </nav>
+      <div class="side-card" id="metaCard">Loading backend…</div>
+    </aside>
+
+    <main>
+      <section id="hosts" class="view active">
+        <div class="topbar">
+          <div>
+            <div class="kicker">Cubic route control</div>
+            <h2>Proxy Hosts</h2>
+            <p class="subtitle">Create public domains that forward to services on other VMs, LXCs, bare-metal hosts, or containers while Coolify keeps owning Traefik and TLS.</p>
+          </div>
+          <div class="actions">
+            <button class="btn" onclick="loadHosts()">Refresh</button>
+            <button class="btn primary" onclick="openModal()">+ Add Proxy Host</button>
+          </div>
+        </div>
+
+        <div class="cards">
+          <div class="card"><span class="hint">Total hosts</span><strong id="countTotal">0</strong></div>
+          <div class="card"><span class="hint">Enabled</span><strong id="countEnabled">0</strong></div>
+          <div class="card"><span class="hint">Healthy targets</span><strong id="countTargets">0</strong></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Routes</h3>
+            <div class="toolbar"><input class="search" id="search" placeholder="Search domain, service, target…" oninput="renderHosts()"></div>
+          </div>
+          <div style="overflow:auto;">
+            <table>
+              <thead><tr><th>Source</th><th>Destination</th><th>Status</th><th>Enabled</th><th></th></tr></thead>
+              <tbody id="hostsBody"><tr><td colspan="5">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="status" class="view">
+        <div class="topbar"><div><div class="kicker">Live checks</div><h2>Health</h2><p class="subtitle">Checks public HTTP/HTTPS source and private target reachability. Disabled routes are skipped.</p></div><button class="btn primary" onclick="loadStatus()">Run checks</button></div>
+        <div class="panel"><div class="panel-head"><h3>Status</h3></div><div id="statusGrid" class="cards" style="padding:18px;"></div></div>
+      </section>
+
+      <section id="raw" class="view">
+        <div class="topbar"><div><div class="kicker">Generated config</div><h2>Raw YAML</h2><p class="subtitle">Read-only view of the Traefik dynamic config currently managed by this tool.</p></div><button class="btn" onclick="loadRaw()">Refresh YAML</button></div>
+        <div class="panel"><pre id="rawYaml">Loading…</pre></div>
+      </section>
+
+      <section id="settings" class="view">
+        <div class="topbar">
+          <div>
+            <div class="kicker">Runtime config</div>
+            <h2>Settings</h2>
+            <p class="subtitle">These fields can be set here or through environment variables / the mounted settings env file. Docker environment values still win after restart.</p>
+          </div>
+          <div class="actions"><button class="btn" onclick="testSettings()">Test connection</button><button class="btn primary" onclick="saveSettings()">Save settings</button></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>Coolify and YAML access</h3><span class="hint" id="settingsEnvFile"></span></div>
+          <div style="padding:18px;" class="grid">
+            <div class="field"><label>Product name</label><input id="set_APP_NAME" placeholder="RouteBox"></div>
+            <div class="field"><label>Backend</label><select id="set_BACKEND"><option value="local">local</option><option value="ssh">ssh</option><option value="proxmox">proxmox</option></select></div>
+            <div class="field"><label>Local YAML path</label><input id="set_CONFIG_PATH" placeholder="/config/dynamic.yml"></div>
+            <div class="field"><label>Remote YAML path</label><input id="set_REMOTE_CONFIG_PATH" placeholder="/data/coolify/proxy/dynamic/npm-import.yaml"></div>
+            <div class="field"><label>Coolify URL</label><input id="set_COOLIFY_URL" placeholder="http://192.168.1.101:8000"></div>
+            <div class="field"><label>Coolify API token</label><input id="set_COOLIFY_API_TOKEN" type="password" placeholder="leave blank to keep current token"><div class="hint" id="tokenHint"></div></div>
+            <div class="field"><label>SSH host</label><input id="set_SSH_HOST" placeholder="192.168.1.200"></div>
+            <div class="field"><label>SSH user</label><input id="set_SSH_USER" placeholder="root"></div>
+            <div class="field"><label>SSH port</label><input id="set_SSH_PORT" placeholder="22"></div>
+            <div class="field"><label>SSH key path</label><input id="set_SSH_KEY" placeholder="/root/.ssh/id_ed25519"></div>
+            <div class="field"><label>Proxmox VMID</label><input id="set_PVE_VMID" placeholder="101"></div>
+            <div class="field"><label>Strict host key checking</label><select id="set_SSH_STRICT_HOST_KEY_CHECKING"><option value="no">no</option><option value="yes">yes</option></select></div>
+            <div class="field"><label>HTTP entrypoint</label><input id="set_ENTRYPOINT_HTTP" placeholder="http"></div>
+            <div class="field"><label>HTTPS entrypoint</label><input id="set_ENTRYPOINT_HTTPS" placeholder="https"></div>
+            <div class="field"><label>Cert resolver</label><input id="set_CERT_RESOLVER" placeholder="letsencrypt"></div>
+            <div class="field"><label>Redirect middleware</label><input id="set_REDIRECT_MIDDLEWARE" placeholder="redirect-to-https"></div>
+            <div class="field"><label>Allow private targets</label><select id="set_ALLOW_PRIVATE_TARGETS"><option value="true">true</option><option value="false">false</option></select></div>
+            <div class="field"><label>State file</label><input id="set_STATE_FILE" placeholder="/data/state.json"></div>
+            <div class="field full"><label>Backup directory</label><input id="set_BACKUP_DIR" placeholder="/data/backups"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="backups" class="view">
+        <div class="topbar"><div><div class="kicker">Safety</div><h2>Backups</h2><p class="subtitle">Every write stores a timestamped backup before touching the dynamic config.</p></div><button class="btn" onclick="loadBackups()">Refresh</button></div>
+        <div class="panel"><div class="panel-head"><h3>Recent backups</h3></div><div id="backupList" style="padding:18px;"></div></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="modalBackdrop" class="modal-backdrop" onclick="closeModal(event)">
+    <form class="modal" id="hostForm" onsubmit="saveHost(event)">
+      <h3 id="modalTitle">Add Proxy Host</h3>
+      <input type="hidden" id="editingId">
+      <div class="grid">
+        <div class="field"><label>Service id</label><input id="serviceId" placeholder="jellyfin" required><div class="hint">Stable internal name. Letters, numbers and dashes.</div></div>
+        <div class="field"><label>Scheme</label><select id="scheme"><option>http</option><option>https</option></select></div>
+        <div class="field full"><label>Public domains</label><input id="domains" placeholder="jellyfin.example.com, media.example.com" required><div class="hint">Comma-separated. Traefik creates HTTP→HTTPS and HTTPS routers.</div></div>
+        <div class="field"><label>Target host/IP</label><input id="forwardHost" placeholder="192.168.1.115" required></div>
+        <div class="field"><label>Target port</label><input id="forwardPort" placeholder="8096" inputmode="numeric" required></div>
+      </div>
+      <div class="modal-actions"><button type="button" class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" type="submit">Save route</button></div>
+    </form>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    let hosts = [];
+    const settingKeys = ['APP_NAME','BACKEND','CONFIG_PATH','REMOTE_CONFIG_PATH','STATE_FILE','BACKUP_DIR','SSH_HOST','SSH_USER','SSH_PORT','SSH_KEY','SSH_STRICT_HOST_KEY_CHECKING','PVE_VMID','ENTRYPOINT_HTTP','ENTRYPOINT_HTTPS','CERT_RESOLVER','REDIRECT_MIDDLEWARE','ALLOW_PRIVATE_TARGETS','COOLIFY_URL','COOLIFY_API_TOKEN'];
+    const $ = (id) => document.getElementById(id);
+
+    function toast(message, isError = false) {
+      const el = $('toast');
+      el.textContent = message;
+      el.classList.toggle('error', isError);
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 3500);
+    }
+
+    async function api(path, options = {}) {
+      const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...options });
+      const type = res.headers.get('content-type') || '';
+      const body = type.includes('json') ? await res.json() : await res.text();
+      if (!res.ok) throw new Error(body.error || body || res.statusText);
+      return body;
+    }
+
+    function switchView(name) {
+      document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === name));
+      document.querySelectorAll('[data-view-button]').forEach(b => b.classList.toggle('active', b.dataset.viewButton === name));
+      if (name === 'status') loadStatus();
+      if (name === 'raw') loadRaw();
+      if (name === 'settings') loadSettings();
+      if (name === 'backups') loadBackups();
+    }
+
+    document.querySelectorAll('[data-view-button]').forEach(btn => btn.addEventListener('click', () => switchView(btn.dataset.viewButton)));
+
+    async function loadMeta() {
+      try {
+        const meta = await api('/api/meta');
+        $('metaCard').innerHTML = `<strong>${meta.app}</strong><br>${meta.backend} backend<br><span>${meta.config_path}</span><br><br>Entrypoints: ${meta.defaults.entrypoint_http}/${meta.defaults.entrypoint_https}<br>Resolver: ${meta.defaults.cert_resolver}<br>Coolify: ${meta.coolify.url || 'not set'}`;
+      } catch (e) { $('metaCard').textContent = e.message; }
+    }
+
+    async function loadHosts() {
+      try {
+        hosts = await api('/api/hosts');
+        renderHosts();
+      } catch (e) { toast(e.message, true); }
+    }
+
+    function renderHosts() {
+      const q = $('search').value.toLowerCase();
+      const filtered = hosts.filter(h => JSON.stringify(h).toLowerCase().includes(q));
+      $('countTotal').textContent = hosts.length;
+      $('countEnabled').textContent = hosts.filter(h => h.enabled).length;
+      $('countTargets').textContent = hosts.filter(h => h.dest_online).length || '—';
+      $('hostsBody').innerHTML = filtered.length ? filtered.map(h => `
+        <tr class="${h.enabled ? '' : 'disabled'}">
+          <td>${h.domains.map(d => `<a class="domain" href="https://${d}" target="_blank">${d}</a>`).join('')}<div class="service">${h.id}</div></td>
+          <td><div class="target">${h.scheme}://${h.forward_host}:${h.forward_port}</div></td>
+          <td><span class="pill"><span class="dot ${h.source_online === true ? 'ok' : h.source_online === false ? 'bad' : ''}"></span>source</span> <span class="pill"><span class="dot ${h.dest_online === true ? 'ok' : h.dest_online === false ? 'bad' : ''}"></span>target</span></td>
+          <td><label class="switch"><input type="checkbox" ${h.enabled ? 'checked' : ''} onchange="toggleHost('${h.id}')"><span class="slider"></span></label></td>
+          <td><div class="row-actions"><button class="btn" onclick='openModal(${JSON.stringify(h)})'>Edit</button><button class="btn danger" onclick="deleteHost('${h.id}')">Delete</button></div></td>
+        </tr>`).join('') : '<tr><td colspan="5">No proxy hosts yet. Add one.</td></tr>';
+    }
+
+    async function loadStatus() {
+      $('statusGrid').innerHTML = '<div class="card">Checking…</div>';
+      try {
+        const rows = await api('/api/status');
+        hosts = rows;
+        renderHosts();
+        $('statusGrid').innerHTML = rows.map(h => `<div class="card"><div class="hint">${h.id}</div><strong>${h.domains[0] || '-'}</strong><p class="hint">${h.scheme}://${h.forward_host}:${h.forward_port}</p><p><span class="pill"><span class="dot ${h.source_online === true ? 'ok' : h.source_online === false ? 'bad' : ''}"></span>source ${h.source_check?.status || ''}</span> <span class="pill"><span class="dot ${h.dest_online === true ? 'ok' : h.dest_online === false ? 'bad' : ''}"></span>target ${h.target_check?.http_status || ''}</span></p>${h.source_check?.error || h.target_check?.error ? `<p class="hint">${h.source_check?.error || h.target_check?.error}</p>` : ''}</div>`).join('') || '<div class="card">No hosts.</div>';
+      } catch (e) { toast(e.message, true); }
+    }
+
+    async function loadSettings() {
+      try {
+        const settings = await api('/api/settings');
+        settingKeys.forEach(key => {
+          const input = $(`set_${key}`);
+          if (!input) return;
+          input.value = key === 'COOLIFY_API_TOKEN' ? '' : (settings[key] || '');
+        });
+        $('settingsEnvFile').textContent = settings.ENV_FILE || '';
+        $('tokenHint').textContent = settings.COOLIFY_API_TOKEN_SET ? 'Token is configured. Leave blank to keep it.' : 'No token configured.';
+      } catch (e) { toast(e.message, true); }
+    }
+
+    function settingsPayload() {
+      const payload = {};
+      settingKeys.forEach(key => {
+        const input = $(`set_${key}`);
+        if (!input) return;
+        payload[key] = input.value;
+      });
+      return payload;
+    }
+
+    async function saveSettings() {
+      try {
+        await api('/api/settings', { method: 'PUT', body: JSON.stringify(settingsPayload()) });
+        await loadMeta();
+        await loadSettings();
+        await loadHosts();
+        toast('Settings saved and connection checked.');
+      } catch (e) { toast(e.message, true); }
+    }
+
+    async function testSettings() {
+      try {
+        const result = await api('/api/settings/test', { method: 'POST', body: JSON.stringify(settingsPayload()) });
+        await loadMeta();
+        toast(`Connection ok (${result.bytes} bytes YAML).`);
+      } catch (e) { toast(e.message, true); }
+    }
+
+    async function loadRaw() {
+      try { $('rawYaml').textContent = await api('/api/raw'); } catch (e) { $('rawYaml').textContent = e.message; }
+    }
+
+    async function loadBackups() {
+      try {
+        const backups = await api('/api/backups');
+        $('backupList').innerHTML = backups.length ? backups.map(b => `<div class="card" style="margin-bottom:10px"><strong>${b.name}</strong><p class="hint">${b.size} bytes · ${b.created}</p></div>`).join('') : '<p class="hint">No backups yet. A backup is created before each write.</p>';
+      } catch (e) { toast(e.message, true); }
+    }
+
+    function openModal(host = null) {
+      $('hostForm').reset();
+      $('editingId').value = host?.id || '';
+      $('modalTitle').textContent = host ? `Edit ${host.id}` : 'Add Proxy Host';
+      $('serviceId').disabled = !!host;
+      if (host) {
+        $('serviceId').value = host.id;
+        $('domains').value = host.domains.join(', ');
+        $('scheme').value = host.scheme;
+        $('forwardHost').value = host.forward_host;
+        $('forwardPort').value = host.forward_port;
+      }
+      $('modalBackdrop').classList.add('active');
+    }
+
+    function closeModal(event) {
+      if (event && event.target !== $('modalBackdrop')) return;
+      $('modalBackdrop').classList.remove('active');
+    }
+
+    async function saveHost(event) {
+      event.preventDefault();
+      const id = $('editingId').value;
+      const payload = {
+        id: $('serviceId').value,
+        domains: $('domains').value.split(',').map(s => s.trim()).filter(Boolean),
+        scheme: $('scheme').value,
+        forward_host: $('forwardHost').value,
+        forward_port: $('forwardPort').value,
+      };
+      try {
+        await api(id ? `/api/hosts/${id}` : '/api/hosts', { method: id ? 'PUT' : 'POST', body: JSON.stringify(payload) });
+        closeModal();
+        await loadHosts();
+        toast('Route saved. Traefik will reload automatically.');
+      } catch (e) { toast(e.message, true); }
+    }
+
+    async function toggleHost(id) {
+      try { await api(`/api/hosts/${id}/toggle`, { method: 'POST' }); await loadHosts(); } catch (e) { toast(e.message, true); }
+    }
+
+    async function deleteHost(id) {
+      if (!confirm(`Delete ${id}?`)) return;
+      try { await api(`/api/hosts/${id}`, { method: 'DELETE' }); await loadHosts(); toast('Route deleted.'); } catch (e) { toast(e.message, true); }
+    }
+
+    loadMeta();
+    loadHosts();
+  </script>
+</body>
+</html>

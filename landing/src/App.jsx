@@ -16,11 +16,11 @@ function App() {
   return (
     <main>
       <nav className="nav">
-        <a className="brand" href="/"><span className="mark" /> RouteBox</a>
+        <a className="brand" href="/"><img className="brand-icon" src="/routebox-icon.png" alt="RouteBox icon" /> RouteBox</a>
         <div className="links">
           <a href="#features">Features</a>
           <a href="#icon">Icon</a>
-          <a href="https://github.com/arturict/coolify-traefik-proxy-manager">GitHub</a>
+          <a href="https://github.com/arturict/routebox">GitHub</a>
         </div>
       </nav>
 
@@ -30,7 +30,7 @@ function App() {
           <h1>Route external services without replacing Coolify.</h1>
           <p className="lead">RouteBox gives Coolify users a minimal cubic control panel for Traefik dynamic YAML: add domains, edit targets, check health, and keep backups.</p>
           <div className="actions">
-            <a className="button primary" href="https://github.com/arturict/coolify-traefik-proxy-manager"><GitBranch size={18} /> View repo</a>
+            <a className="button primary" href="https://github.com/arturict/routebox"><GitBranch size={18} /> View repo</a>
             <a className="button" href="#features">See features</a>
           </div>
         </div>
@@ -53,7 +53,7 @@ function App() {
           <p className="lead small">The RouteBox icon should be a flat box or cube outline with a lime route entering and a small orange exit node. No letters, no robot motif, no generic cloud glyph.</p>
         </div>
         <div className="icon-spec">
-          <span className="mark big" />
+          <img className="brand-icon big" src="/routebox-icon.png" alt="RouteBox icon" />
           <p>Dark geometric shell. Lime route segment. Orange endpoint. 4-6px corner radius. Strong at favicon size.</p>
         </div>
       </section>

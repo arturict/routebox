@@ -1,0 +1,28 @@
+services:
+  proxy-manager:
+    image: ghcr.io/arturict/routebox:latest
+    build: .
+    container_name: routebox
+    restart: unless-stopped
+    ports:
+      - "81:81"
+    environment:
+      PORT: "81"
+      APP_NAME: RouteBox
+      BACKEND: local
+      CONFIG_PATH: /config/npm-import.yaml
+      STATE_FILE: /data/state.json
+      BACKUP_DIR: /data/backups
+      ENV_FILE: /data/settings.env
+      ENTRYPOINT_HTTP: http
+      ENTRYPOINT_HTTPS: https
+      CERT_RESOLVER: letsencrypt
+      REDIRECT_MIDDLEWARE: redirect-to-https
+      COOLIFY_URL: ${COOLIFY_URL:-}
+      COOLIFY_API_TOKEN: ${COOLIFY_API_TOKEN:-}
+    volumes:
+      - ./data:/data
+      # Mount your Coolify Traefik dynamic config here for BACKEND=local.
+      # Example on Coolify host:
+      # - /data/coolify/proxy/dynamic/npm-import.yaml:/config/npm-import.yaml
+      - ./example/npm-import.yaml:/config/npm-import.yaml

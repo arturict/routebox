@@ -6,9 +6,7 @@ main { width:min(1160px, calc(100vw - 32px)); margin:0 auto; }
 .nav { height:78px; display:flex; align-items:center; justify-content:space-between; gap:24px; }
 .brand { display:flex; align-items:center; gap:12px; font-weight:900; letter-spacing:-.04em; }
 .links { display:flex; gap:20px; color:#aaa18b; font-size:14px; }
-.mark { width:40px; height:40px; display:grid; place-items:center; border:1px solid rgba(248,243,223,.16); border-radius:6px; background:#151711; box-shadow:6px 6px 0 rgba(200,255,46,.13); position:relative; }
-.mark::before { content:""; width:19px; height:19px; border:5px solid #c8ff2e; border-right-color:transparent; border-bottom-color:transparent; transform:rotate(-45deg); border-radius:4px; }
-.mark::after { content:""; position:absolute; right:8px; bottom:8px; width:9px; height:9px; background:#ff6a2a; border-radius:2px; }
+.brand-icon { width:40px; height:40px; object-fit:cover; border:1px solid rgba(248,243,223,.16); border-radius:6px; background:#151711; box-shadow:6px 6px 0 rgba(200,255,46,.13); }
 .hero { min-height:calc(100vh - 80px); display:grid; grid-template-columns:1fr .9fr; gap:42px; align-items:center; padding:60px 0 86px; }
 .kicker { color:#c8ff2e; text-transform:uppercase; letter-spacing:.11em; font-weight:900; font-size:13px; }
 h1 { font-size:clamp(52px, 8vw, 96px); line-height:.9; letter-spacing:-.08em; margin:18px 0; }
@@ -30,7 +28,5 @@ h2 { font-size:clamp(36px, 5vw, 62px); line-height:.96; letter-spacing:-.06em; m
 .feature p, .icon-spec p { color:#aaa18b; line-height:1.55; }
 .icon-section { display:grid; grid-template-columns:1fr .8fr; gap:32px; align-items:center; padding:74px 0 96px; border-top:1px solid rgba(248,243,223,.12); }
 .icon-spec { border:1px solid rgba(248,243,223,.14); border-radius:6px; padding:28px; background:rgba(255,255,255,.035); box-shadow:10px 10px 0 rgba(200,255,46,.09); }
-.mark.big { width:92px; height:92px; margin-bottom:22px; }
-.mark.big::before { width:44px; height:44px; border-width:10px; }
-.mark.big::after { width:18px; height:18px; right:18px; bottom:18px; }
+.brand-icon.big { width:92px; height:92px; margin-bottom:22px; }
 @media (max-width: 900px) { .hero, .icon-section { grid-template-columns:1fr; } .features { grid-template-columns:1fr; } .nav { height:auto; padding:20px 0; align-items:flex-start; flex-direction:column; } .route-row { display:grid; } }

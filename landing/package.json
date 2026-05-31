@@ -1,5 +1,5 @@
 {
-  "name": "routebox-site",
+  "name": "routebox-landing",
   "version": "1.0.0",
   "private": false,
   "description": "Landing page for RouteBox, a minimal route manager for Coolify Traefik dynamic YAML.",
