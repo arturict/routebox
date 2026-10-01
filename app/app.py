@@ -101,6 +101,21 @@ COOLIFY_URL = _cfg("COOLIFY_URL", "")
 COOLIFY_API_TOKEN = _cfg("COOLIFY_API_TOKEN", "")
 
 
+def _parse_networks(value: str) -> list:
+    networks = []
+    for item in value.split(","):
+        item = item.strip()
+        if item:
+            networks.append(ipaddress.ip_network(item, strict=False))
+    return networks
+
+
+# The API has no login, so deployments can restrict it to trusted client
+# networks (for example "192.168.1.0/24,100.64.0.0/10"). Empty means allow all.
+# Read once at start-up from the environment, never from the settings API.
+ALLOWED_CLIENT_NETWORKS = _parse_networks(os.environ.get("ALLOWED_CLIENT_CIDRS", ""))
+
+
 def _runtime_settings(include_secrets: bool = False) -> dict:
     return {
         "APP_NAME": APP_NAME,
@@ -668,6 +683,21 @@ def _coolify_api(path: str) -> dict:
         raise BackendError(f"Coolify API returned {exc.code}") from exc
     except Exception as exc:
         raise BackendError(f"Coolify API check failed: {exc}") from exc
+
+
+@app.before_request
+def restrict_clients():
+    if not ALLOWED_CLIENT_NETWORKS:
+        return None
+    try:
+        client = ipaddress.ip_address(request.remote_addr or "")
+    except ValueError:
+        return jsonify({"error": "client not allowed"}), 403
+    if client.version == 6 and client.ipv4_mapped:
+        client = client.ipv4_mapped
+    if any(client in network for network in ALLOWED_CLIENT_NETWORKS if network.version == client.version):
+        return None
+    return jsonify({"error": "client not allowed"}), 403
 
 
 @app.route("/")

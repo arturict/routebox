@@ -68,6 +68,24 @@ class SettingsValidationTest(unittest.TestCase):
         run.assert_not_called()
 
 
+class ClientAllowlistTest(unittest.TestCase):
+    def request_from(self, networks: str, addr: str) -> int:
+        with mock.patch.object(routebox, "ALLOWED_CLIENT_NETWORKS", routebox._parse_networks(networks)):
+            client = routebox.app.test_client()
+            return client.get("/api/health", environ_overrides={"REMOTE_ADDR": addr}).status_code
+
+    def test_empty_allowlist_allows_everyone(self):
+        self.assertEqual(self.request_from("", "203.0.113.9"), 200)
+
+    def test_allows_lan_and_tailnet_blocks_others(self):
+        networks = "192.168.1.0/24,100.64.0.0/10,127.0.0.0/8"
+        self.assertEqual(self.request_from(networks, "192.168.1.213"), 200)
+        self.assertEqual(self.request_from(networks, "100.123.58.113"), 200)
+        self.assertEqual(self.request_from(networks, "127.0.0.1"), 200)
+        self.assertEqual(self.request_from(networks, "203.0.113.9"), 403)
+        self.assertEqual(self.request_from(networks, "172.19.0.1"), 403)
+
+
 class HostPayloadValidationTest(unittest.TestCase):
     def test_rejects_rule_injection_in_domain(self):
         with self.assertRaises(ValueError):

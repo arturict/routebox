@@ -175,6 +175,7 @@ If your Coolify/Traefik uses different names, override:
 | `SSH_KEY` | `/ssh/id_ed25519` | SSH private key inside container |
 | `PVE_VMID` | empty | Coolify VM ID for `BACKEND=proxmox` |
 | `ALLOW_PRIVATE_TARGETS` | `true` | Set `false` to block private/LAN targets |
+| `ALLOWED_CLIENT_CIDRS` | empty (allow all) | Comma-separated client networks allowed to use UI and API; read from the environment only |
 | `COOLIFY_URL` | empty | Optional Coolify API base URL for Settings connection test |
 | `COOLIFY_API_TOKEN` | empty | Optional Coolify API token. Leave blank in UI to keep the current token |
 
@@ -192,7 +193,7 @@ and strong contrast so it works as a favicon, app sidebar mark, and GitHub avata
 
 - Every write creates a backup under `/data/backups`.
 - The app rewrites only the managed dynamic file, not Coolify's database.
-- Keep this UI LAN-only or protect it behind auth/VPN. It can edit public routing. The API has no login, so publish the port on specific interfaces (for example `"192.168.1.113:81:81"`) instead of `0.0.0.0`, and never route a public hostname to it.
+- Keep this UI LAN-only or protect it behind auth/VPN. It can edit public routing. The API has no login, so publish the port on specific interfaces (for example `"192.168.1.113:81:81"`) instead of `0.0.0.0`, and never route a public hostname to it. Where binding to interface addresses is awkward (for example a Tailscale address that may not exist yet when Docker starts), set `ALLOWED_CLIENT_CIDRS` (comma-separated, e.g. `192.168.1.0/24,100.64.0.0/10,127.0.0.0/8`) to answer 403 to every other client address.
 - Settings that reach `ssh`/`qm guest exec` (`PVE_VMID`, `SSH_HOST`, `SSH_USER`, `SSH_PORT`, paths) are validated against strict patterns when saved and again before every remote command. Route domains and target hosts must be plain host names or IP addresses.
 - Mount a dedicated SSH key with the minimum permissions you can tolerate.
 
