@@ -192,7 +192,8 @@ and strong contrast so it works as a favicon, app sidebar mark, and GitHub avata
 
 - Every write creates a backup under `/data/backups`.
 - The app rewrites only the managed dynamic file, not Coolify's database.
-- Keep this UI LAN-only or protect it behind auth/VPN. It can edit public routing.
+- Keep this UI LAN-only or protect it behind auth/VPN. It can edit public routing. The API has no login, so publish the port on specific interfaces (for example `"192.168.1.113:81:81"`) instead of `0.0.0.0`, and never route a public hostname to it.
+- Settings that reach `ssh`/`qm guest exec` (`PVE_VMID`, `SSH_HOST`, `SSH_USER`, `SSH_PORT`, paths) are validated against strict patterns when saved and again before every remote command. Route domains and target hosts must be plain host names or IP addresses.
 - Mount a dedicated SSH key with the minimum permissions you can tolerate.
 
 ## Development
@@ -202,6 +203,12 @@ docker compose up --build
 ```
 
 Then open `http://localhost:81`.
+
+Tests (standard library only, after `pip install -r requirements.txt`):
+
+```bash
+python -m unittest discover -s tests
+```
 
 ## License
 

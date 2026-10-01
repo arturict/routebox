@@ -6,6 +6,7 @@ import ipaddress
 import json
 import os
 import re
+import shlex
 import shutil
 import socket
 import ssl
@@ -143,6 +144,8 @@ def _apply_runtime_settings(values: dict[str, str]):
     global DEFAULT_CERT_RESOLVER, REDIRECT_MIDDLEWARE, ALLOW_PRIVATE_TARGETS
     global COOLIFY_URL, COOLIFY_API_TOKEN
 
+    _validate_settings({key: str(values.get(key) or "") for key in SETTINGS_KEYS if key in values})
+
     current = _runtime_settings(include_secrets=True)
     for key in SETTINGS_KEYS:
         if key not in values:
@@ -181,8 +184,59 @@ class BackendError(RuntimeError):
     pass
 
 
-def _shell_quote(value: str) -> str:
-    return "'" + value.replace("'", "'\\''") + "'"
+# Settings reach `ssh` and, on the proxmox backend, a root shell on the
+# Proxmox node, so every value that ends up on a command line is checked
+# against a strict pattern both when it is saved and again when it is used.
+_HOSTNAME_RE = re.compile(
+    r"^(?=.{1,253}$)[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$"
+)
+_SSH_USER_RE = re.compile(r"^[a-z_][a-z0-9_-]{0,31}$")
+_VMID_RE = re.compile(r"^[0-9]{1,9}$")
+_ABS_PATH_RE = re.compile(r"^/[A-Za-z0-9_@%+=:,./ -]*$")
+_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._@-]{0,63}$")
+_STRICT_VALUES = {"", "yes", "no", "true", "false", "1", "0", "accept-new"}
+
+
+def _is_host(value: str) -> bool:
+    if _HOSTNAME_RE.match(value):
+        return True
+    try:
+        ipaddress.ip_address(value)
+        return True
+    except ValueError:
+        return False
+
+
+def _check_setting(key: str, value: str) -> str | None:
+    """Return an error message when `value` is not acceptable for `key`."""
+    if value == "":
+        return None
+    if key == "PVE_VMID" and not _VMID_RE.match(value):
+        return "PVE_VMID must be a numeric VM id"
+    if key == "SSH_HOST" and not _is_host(value):
+        return "SSH_HOST must be a hostname or IP address"
+    if key == "SSH_USER" and not _SSH_USER_RE.match(value):
+        return "SSH_USER must be a plain unix user name"
+    if key == "SSH_PORT" and not (value.isdigit() and 1 <= int(value) <= 65535):
+        return "SSH_PORT must be between 1 and 65535"
+    if key in {"SSH_KEY", "REMOTE_CONFIG_PATH", "CONFIG_PATH", "STATE_FILE", "BACKUP_DIR", "ENV_FILE"} and not _ABS_PATH_RE.match(value):
+        return f"{key} must be an absolute path without shell characters"
+    if key == "SSH_STRICT_HOST_KEY_CHECKING" and value.lower() not in _STRICT_VALUES:
+        return "SSH_STRICT_HOST_KEY_CHECKING must be yes, no or accept-new"
+    if key in {"ENTRYPOINT_HTTP", "ENTRYPOINT_HTTPS", "CERT_RESOLVER", "REDIRECT_MIDDLEWARE"} and not _NAME_RE.match(value):
+        return f"{key} contains characters Traefik names do not use"
+    if key == "COOLIFY_URL":
+        parsed = urlparse(value)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            return "COOLIFY_URL must be an http(s) URL"
+    return None
+
+
+def _validate_settings(values: dict[str, str]):
+    for key, value in values.items():
+        error = _check_setting(key, value)
+        if error:
+            raise ValueError(error)
 
 
 def _ssh_base() -> list[str]:
@@ -201,16 +255,22 @@ def _ssh_base() -> list[str]:
 def _run_remote(command: str, timeout: int = 30) -> str:
     if not SSH_HOST:
         raise BackendError("SSH_HOST is required for ssh/proxmox backends")
+    # Settings can also come from the environment or settings.env, which the
+    # API validation never sees, so check again before building the command.
+    for key, value in (("SSH_HOST", SSH_HOST), ("SSH_USER", SSH_USER), ("SSH_PORT", str(SSH_PORT)), ("PVE_VMID", str(PVE_VMID))):
+        error = _check_setting(key, value)
+        if error:
+            raise BackendError(error)
 
     if BACKEND == "proxmox":
         if not PVE_VMID:
             raise BackendError("PVE_VMID is required for BACKEND=proxmox")
-        remote_cmd = f"qm guest exec {PVE_VMID} -- bash -lc {_shell_quote(command)}"
+        remote_cmd = f"qm guest exec {shlex.quote(str(PVE_VMID))} -- bash -lc {shlex.quote(command)}"
     else:
         remote_cmd = command
 
     result = subprocess.run(
-        [*_ssh_base(), f"{SSH_USER}@{SSH_HOST}", remote_cmd],
+        [*_ssh_base(), "--", f"{SSH_USER}@{SSH_HOST}", remote_cmd],
         capture_output=True,
         text=True,
         timeout=timeout,
@@ -234,7 +294,7 @@ def _read_text() -> str:
     if BACKEND == "local":
         path = Path(CONFIG_PATH)
         return path.read_text() if path.exists() else ""
-    return _run_remote(f"cat {_shell_quote(REMOTE_CONFIG_PATH)} 2>/dev/null || true")
+    return _run_remote(f"cat {shlex.quote(REMOTE_CONFIG_PATH)} 2>/dev/null || true")
 
 
 def _write_text(content: str):
@@ -260,9 +320,9 @@ def _write_text(content: str):
 
     encoded = base64.b64encode(content.encode()).decode()
     command = (
-        f"mkdir -p {_shell_quote(str(Path(REMOTE_CONFIG_PATH).parent))} && "
-        f"tmp=$(mktemp) && printf %s {_shell_quote(encoded)} | base64 -d > $tmp && "
-        f"mv $tmp {_shell_quote(REMOTE_CONFIG_PATH)}"
+        f"mkdir -p {shlex.quote(str(Path(REMOTE_CONFIG_PATH).parent))} && "
+        f"tmp=$(mktemp) && printf %s {shlex.quote(encoded)} | base64 -d > $tmp && "
+        f"mv $tmp {shlex.quote(REMOTE_CONFIG_PATH)}"
     )
     _run_remote(command)
 
@@ -450,6 +510,11 @@ def _payload_host(body: dict, existing_id: str | None = None) -> dict:
         raise ValueError("Service id is required")
     if not domains:
         raise ValueError("At least one domain is required")
+    for domain in domains:
+        if not _HOSTNAME_RE.match(domain):
+            raise ValueError(f"'{domain}' is not a valid domain name")
+    if not _is_host(forward_host):
+        raise ValueError("Target host must be a hostname or IPv4/IPv6 address")
     _validate_target(forward_host, forward_port)
     return {
         "id": service_id,
@@ -728,7 +793,7 @@ def settings_put():
         _apply_runtime_settings(sanitized)
         _read_text()
         return jsonify({"status": "ok", "settings": _masked_settings()})
-    except BackendError as exc:
+    except (ValueError, BackendError) as exc:
         return jsonify({"error": str(exc)}), 400
 
 
@@ -746,7 +811,7 @@ def settings_test():
             except BackendError as exc:
                 coolify = {"error": str(exc)}
         return jsonify({"status": "ok", "bytes": len(raw.encode()), "backend": BACKEND, "coolify": coolify})
-    except BackendError as exc:
+    except (ValueError, BackendError) as exc:
         return jsonify({"status": "error", "error": str(exc)}), 400
 
 
