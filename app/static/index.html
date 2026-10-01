@@ -103,6 +103,18 @@
     .toast { position:fixed; right:24px; bottom:24px; background:#10110c; color:var(--text); border:1px solid var(--border); padding:13px 16px; border-radius:4px; display:none; z-index:120; box-shadow:var(--shadow); }
     .toast.show { display:block; }
     .toast.error { border-color:rgba(255,95,109,.6); color:#ffd7dc; }
+    .skeleton-line { display:block; height:12px; width:100%; border-radius:999px; background:linear-gradient(90deg, rgba(248,243,223,.07), rgba(248,243,223,.18), rgba(248,243,223,.07)); background-size:220% 100%; animation:skeleton 1.15s ease-in-out infinite; }
+    .skeleton-line.short { width:42%; }
+    .skeleton-line.mid { width:64%; }
+    .skeleton-line.wide { width:86%; }
+    .skeleton-stack { display:grid; gap:10px; }
+    .skeleton-cell { min-width:120px; }
+    .skeleton-metric { height:30px; width:58px; margin-top:8px; border-radius:4px; }
+    .skeleton-pill { height:29px; width:82px; border-radius:4px; border:1px solid var(--border); background:rgba(255,255,255,.045); }
+    .skeleton-card { min-height:132px; display:grid; align-content:start; gap:12px; }
+    .raw-loading { color:transparent; }
+    .raw-loading .skeleton-line { margin-bottom:12px; }
+    @keyframes skeleton { 0% { background-position:120% 0; } 100% { background-position:-120% 0; } }
     @media (max-width: 950px) { .shell { grid-template-columns:1fr; } aside { position:static; } .cards { grid-template-columns:1fr; } .topbar { flex-direction:column; } table, tbody, tr, td { display:block; } thead { display:none; } td { padding:12px 16px; } .row-actions { justify-content:flex-start; } .grid { grid-template-columns:1fr; } }
   </style>
 </head>
@@ -120,7 +132,7 @@
         <button data-view-button="settings">Settings</button>
         <button data-view-button="backups">Backups</button>
       </nav>
-      <div class="side-card" id="metaCard">Loading backend…</div>
+      <div class="side-card skeleton-stack" id="metaCard" aria-busy="true"><span class="skeleton-line mid"></span><span class="skeleton-line wide"></span><span class="skeleton-line"></span><span class="skeleton-line short"></span></div>
     </aside>
 
     <main>
@@ -138,9 +150,9 @@
         </div>
 
         <div class="cards">
-          <div class="card"><span class="hint">Total hosts</span><strong id="countTotal">0</strong></div>
-          <div class="card"><span class="hint">Enabled</span><strong id="countEnabled">0</strong></div>
-          <div class="card"><span class="hint">Healthy targets</span><strong id="countTargets">0</strong></div>
+          <div class="card"><span class="hint">Total hosts</span><strong id="countTotal" class="skeleton-line skeleton-metric"></strong></div>
+          <div class="card"><span class="hint">Enabled</span><strong id="countEnabled" class="skeleton-line skeleton-metric"></strong></div>
+          <div class="card"><span class="hint">Healthy targets</span><strong id="countTargets" class="skeleton-line skeleton-metric"></strong></div>
         </div>
 
         <div class="panel">
@@ -151,7 +163,7 @@
           <div style="overflow:auto;">
             <table>
               <thead><tr><th>Source</th><th>Destination</th><th>Status</th><th>Enabled</th><th></th></tr></thead>
-              <tbody id="hostsBody"><tr><td colspan="5">Loading…</td></tr></tbody>
+              <tbody id="hostsBody" aria-busy="true"></tbody>
             </table>
           </div>
         </div>
@@ -159,12 +171,12 @@
 
       <section id="status" class="view">
         <div class="topbar"><div><div class="kicker">Live checks</div><h2>Health</h2><p class="subtitle">Checks public HTTP/HTTPS source and private target reachability. Disabled routes are skipped.</p></div><button class="btn primary" onclick="loadStatus()">Run checks</button></div>
-        <div class="panel"><div class="panel-head"><h3>Status</h3></div><div id="statusGrid" class="cards" style="padding:18px;"></div></div>
+        <div class="panel"><div class="panel-head"><h3>Status</h3></div><div id="statusGrid" class="cards" style="padding:18px;" aria-busy="false"></div></div>
       </section>
 
       <section id="raw" class="view">
         <div class="topbar"><div><div class="kicker">Generated config</div><h2>Raw YAML</h2><p class="subtitle">Read-only view of the Traefik dynamic config currently managed by this tool.</p></div><button class="btn" onclick="loadRaw()">Refresh YAML</button></div>
-        <div class="panel"><pre id="rawYaml">Loading…</pre></div>
+        <div class="panel"><pre id="rawYaml" class="raw-loading" aria-busy="true"></pre></div>
       </section>
 
       <section id="settings" class="view">
@@ -258,16 +270,55 @@
 
     document.querySelectorAll('[data-view-button]').forEach(btn => btn.addEventListener('click', () => switchView(btn.dataset.viewButton)));
 
+    function skeletonRows(count = 5) {
+      $('hostsBody').setAttribute('aria-busy', 'true');
+      $('hostsBody').innerHTML = Array.from({ length: count }, () => `
+        <tr>
+          <td><span class="skeleton-line wide"></span><br><span class="skeleton-line short"></span></td>
+          <td><span class="skeleton-line mid skeleton-cell"></span></td>
+          <td><div class="row-actions" style="justify-content:flex-start"><span class="skeleton-pill"></span><span class="skeleton-pill"></span></div></td>
+          <td><span class="skeleton-pill" style="width:46px;border-radius:999px"></span></td>
+          <td><div class="row-actions"><span class="skeleton-pill"></span><span class="skeleton-pill"></span></div></td>
+        </tr>`).join('');
+    }
+
+    function skeletonCards(id, count = 3) {
+      const el = $(id);
+      el.setAttribute('aria-busy', 'true');
+      el.innerHTML = Array.from({ length: count }, () => `<div class="card skeleton-card"><span class="skeleton-line short"></span><span class="skeleton-line mid"></span><span class="skeleton-line wide"></span><span class="skeleton-line"></span></div>`).join('');
+    }
+
+    function skeletonRaw() {
+      $('rawYaml').classList.add('raw-loading');
+      $('rawYaml').setAttribute('aria-busy', 'true');
+      $('rawYaml').innerHTML = Array.from({ length: 16 }, (_, index) => `<span class="skeleton-line ${index % 4 === 0 ? 'wide' : index % 3 === 0 ? 'mid' : ''}"></span>`).join('');
+    }
+
+    function statusClass(value) {
+      return value === true ? 'ok' : value === false ? 'bad' : 'warn';
+    }
+
+    function statusText(value) {
+      return value === true ? 'online' : value === false ? 'offline' : 'checking';
+    }
+
+    function statusPill(label, value, detail = '') {
+      return `<span class="pill"><span class="dot ${statusClass(value)}"></span>${label} ${statusText(value)}${detail ? ` · ${detail}` : ''}</span>`;
+    }
+
     async function loadMeta() {
       try {
         const meta = await api('/api/meta');
+        $('metaCard').classList.remove('skeleton-stack');
+        $('metaCard').removeAttribute('aria-busy');
         $('metaCard').innerHTML = `<strong>${meta.app}</strong><br>${meta.backend} backend<br><span>${meta.config_path}</span><br><br>Entrypoints: ${meta.defaults.entrypoint_http}/${meta.defaults.entrypoint_https}<br>Resolver: ${meta.defaults.cert_resolver}<br>Coolify: ${meta.coolify.url || 'not set'}`;
       } catch (e) { $('metaCard').textContent = e.message; }
     }
 
     async function loadHosts() {
+      skeletonRows();
       try {
-        hosts = await api('/api/hosts');
+        hosts = await api('/api/hosts?status=1');
         renderHosts();
       } catch (e) { toast(e.message, true); }
     }
@@ -275,26 +326,29 @@
     function renderHosts() {
       const q = $('search').value.toLowerCase();
       const filtered = hosts.filter(h => JSON.stringify(h).toLowerCase().includes(q));
+      $('hostsBody').setAttribute('aria-busy', 'false');
+      ['countTotal', 'countEnabled', 'countTargets'].forEach(id => $(id).classList.remove('skeleton-line', 'skeleton-metric'));
       $('countTotal').textContent = hosts.length;
       $('countEnabled').textContent = hosts.filter(h => h.enabled).length;
-      $('countTargets').textContent = hosts.filter(h => h.dest_online).length || '—';
+      $('countTargets').textContent = hosts.some(h => h.dest_online !== null && h.dest_online !== undefined) ? hosts.filter(h => h.dest_online).length : '—';
       $('hostsBody').innerHTML = filtered.length ? filtered.map(h => `
         <tr class="${h.enabled ? '' : 'disabled'}">
           <td>${h.domains.map(d => `<a class="domain" href="https://${d}" target="_blank">${d}</a>`).join('')}<div class="service">${h.id}</div></td>
           <td><div class="target">${h.scheme}://${h.forward_host}:${h.forward_port}</div></td>
-          <td><span class="pill"><span class="dot ${h.source_online === true ? 'ok' : h.source_online === false ? 'bad' : ''}"></span>source</span> <span class="pill"><span class="dot ${h.dest_online === true ? 'ok' : h.dest_online === false ? 'bad' : ''}"></span>target</span></td>
+          <td>${statusPill('source', h.source_online)} ${statusPill('target', h.dest_online)}</td>
           <td><label class="switch"><input type="checkbox" ${h.enabled ? 'checked' : ''} onchange="toggleHost('${h.id}')"><span class="slider"></span></label></td>
           <td><div class="row-actions"><button class="btn" onclick='openModal(${JSON.stringify(h)})'>Edit</button><button class="btn danger" onclick="deleteHost('${h.id}')">Delete</button></div></td>
         </tr>`).join('') : '<tr><td colspan="5">No proxy hosts yet. Add one.</td></tr>';
     }
 
     async function loadStatus() {
-      $('statusGrid').innerHTML = '<div class="card">Checking…</div>';
+      skeletonCards('statusGrid');
       try {
         const rows = await api('/api/status');
         hosts = rows;
         renderHosts();
-        $('statusGrid').innerHTML = rows.map(h => `<div class="card"><div class="hint">${h.id}</div><strong>${h.domains[0] || '-'}</strong><p class="hint">${h.scheme}://${h.forward_host}:${h.forward_port}</p><p><span class="pill"><span class="dot ${h.source_online === true ? 'ok' : h.source_online === false ? 'bad' : ''}"></span>source ${h.source_check?.status || ''}</span> <span class="pill"><span class="dot ${h.dest_online === true ? 'ok' : h.dest_online === false ? 'bad' : ''}"></span>target ${h.target_check?.http_status || ''}</span></p>${h.source_check?.error || h.target_check?.error ? `<p class="hint">${h.source_check?.error || h.target_check?.error}</p>` : ''}</div>`).join('') || '<div class="card">No hosts.</div>';
+        $('statusGrid').setAttribute('aria-busy', 'false');
+        $('statusGrid').innerHTML = rows.map(h => `<div class="card"><div class="hint">${h.id}</div><strong>${h.domains[0] || '-'}</strong><p class="hint">${h.scheme}://${h.forward_host}:${h.forward_port}</p><p>${statusPill('source', h.source_online, h.source_check?.status || '')} ${statusPill('target', h.dest_online, h.target_check?.http_status || '')}</p>${h.source_checks?.length > 1 ? `<p class="hint">${h.source_checks.map(c => `${c.domain}: ${statusText(c.online)}`).join('<br>')}</p>` : ''}${h.source_check?.error || h.target_check?.error ? `<p class="hint">${h.source_check?.error || h.target_check?.error}</p>` : ''}</div>`).join('') || '<div class="card">No hosts.</div>';
       } catch (e) { toast(e.message, true); }
     }
 
@@ -340,7 +394,15 @@
     }
 
     async function loadRaw() {
-      try { $('rawYaml').textContent = await api('/api/raw'); } catch (e) { $('rawYaml').textContent = e.message; }
+      skeletonRaw();
+      try {
+        $('rawYaml').textContent = await api('/api/raw');
+        $('rawYaml').classList.remove('raw-loading');
+        $('rawYaml').setAttribute('aria-busy', 'false');
+      } catch (e) {
+        $('rawYaml').classList.remove('raw-loading');
+        $('rawYaml').textContent = e.message;
+      }
     }
 
     async function loadBackups() {
@@ -398,6 +460,7 @@
     }
 
     loadMeta();
+    skeletonRows();
     loadHosts();
   </script>
 </body>

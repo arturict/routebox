@@ -498,19 +498,41 @@ def _target_check(host: dict) -> dict:
     tcp_online = _tcp_ok(host["forward_host"], port)
     url = f"{host.get('scheme', 'http')}://{host['forward_host']}:{host['forward_port']}"
     http = _http_status(url, timeout=4.0) if tcp_online else {"online": False, "status": None, "error": "tcp connection failed"}
-    return {"online": bool(tcp_online), "tcp": bool(tcp_online), "http_status": http.get("status"), "error": http.get("error", "")}
+    return {"online": bool(tcp_online and http.get("online")), "tcp": bool(tcp_online), "http_status": http.get("status"), "error": http.get("error", "")}
+
+
+def _source_checks(domains: list[str]) -> list[dict]:
+    checks = []
+    for domain in domains:
+        checks.append({"domain": domain, **_source_check(domain)})
+    return checks
+
+
+def _source_summary(checks: list[dict]) -> dict:
+    if not checks:
+        return {"online": False, "status": None, "error": "no domains", "scheme": "https/http"}
+    online = [check for check in checks if check.get("online")]
+    errors = [f"{check.get('domain')}: {check.get('error')}" for check in checks if check.get("error")]
+    return {
+        "online": len(online) == len(checks),
+        "status": f"{len(online)}/{len(checks)} online" if len(checks) > 1 else checks[0].get("status"),
+        "error": "; ".join(errors),
+        "scheme": checks[0].get("scheme", "https/http"),
+    }
 
 
 def _checked_host(host: dict) -> dict:
     if not host.get("enabled", True):
         return {**host, "source_online": None, "dest_online": None, "source_check": None, "target_check": None}
     target = _target_check(host)
-    source = _source_check(host["domains"][0]) if host.get("domains") else {"online": False, "status": None, "error": "no domains"}
+    source_checks = _source_checks(host.get("domains", []))
+    source = _source_summary(source_checks)
     return {
         **host,
         "source_online": source["online"],
         "dest_online": target["online"],
         "source_check": source,
+        "source_checks": source_checks,
         "target_check": target,
     }
 
@@ -521,6 +543,7 @@ def _check_error(host: dict, error: str) -> dict:
         "source_online": False,
         "dest_online": False,
         "source_check": {"online": False, "status": None, "error": error, "scheme": "https/http"},
+        "source_checks": [],
         "target_check": {"online": False, "tcp": False, "http_status": None, "error": error},
     }
 
